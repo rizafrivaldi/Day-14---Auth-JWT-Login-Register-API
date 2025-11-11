@@ -6,34 +6,10 @@ const app = express();
 app.use(express.json());
 
 const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
 app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 
-{
-  /*
-//server.js//
-const express = require("express");
-const dotenv = require("dotenv");
-
-//Load environment variables//
-dotenv.config();
-
-const app = express();
-
-//Middleware bawaan Express untuk parsing JSON body//
-app.use(express.json());
-
-//Import routes//
-const authRoutes = require("./routes/authRoute");
-app.use("/api/auth", authRoutes);
-
-//Gunakan route//
-app.use("/", (req, res) => {
-  res.send("Server running with Express JWT Auth");
-});
-
-
-*/
-}
 app.use((err, req, res, next) => {
   console.error("Error caught by handler:", err);
 
@@ -46,5 +22,4 @@ app.use((err, req, res, next) => {
 
 //Jalankan server//
 const PORT = process.env.PORT || 5000;
-console.log("DEBUG JWT_SECRET =", process.env.JWT_SECET);
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
