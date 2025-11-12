@@ -4,9 +4,16 @@ const jwt = require("jsonwebtoken");
 const router = express.Router();
 const generateToken = require("../utils/generateToken");
 const protect = require("../middleware/authMiddleware");
+const {
+  generateAccessToken,
+  generateRefreshToken,
+} = require("../utils/generateToken");
 
 //Dummy database (sementara, nanti bisa pakai MongoDB)//
 const users = [];
+
+//Untuk simpan refresh token sementara (simulasi database)
+let refreshTokens = [];
 
 //Register user baru
 router.post("/register", async (req, res) => {
@@ -66,23 +73,66 @@ router.post("/login", async (req, res) => {
     }
 
     //Buat token//
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1h",
-      }
-    );
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    //simpan token refresh ke array//
+    refreshTokens.push(refreshToken);
 
     res.status(200).json({
       message: "Login berhasil",
-      token,
-      user: { id: user.id, username: user.username, email: user.email },
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     console.error("Error saat login:", error);
     res.status(500).json({ message: "Terjadi kesalahan server" });
   }
+});
+
+//Refresh Token//
+//Add setelah end point login//
+router.post("/refresh", (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(401).json({ message: "Token tidak ditemukan" });
+
+  //periksa apakah refreshToken valid//
+  if (!refreshTokens.includes(token))
+    return res.status(403).json({ message: "Refresh token tidak valid" });
+
+  jwt.verify(token, process.env.JWT_REFRESH_SECRET, (err, user) => {
+    if (err)
+      return res.status(403).json({ message: "Refresh token kedaluwarsa" });
+
+    const newAccessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+    });
+
+    res.json({
+      message: "Access token baru berhasil dibuat",
+      accessToken: newAccessToken,
+    });
+  });
+});
+
+//Logout//
+//Add after refresh section//
+router.post("/logout", (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Refresh token tidak ditemukan" });
+  }
+
+  refreshTokens = refreshTokens.filter((token) => token !== refreshToken);
+
+  return res.json({
+    success: true,
+    message: "Logout berhasil, token dihapus",
+  });
 });
 
 //Test protected route//

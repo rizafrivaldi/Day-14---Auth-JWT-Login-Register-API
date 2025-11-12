@@ -1,5 +1,7 @@
 require("dotenv").config();
 console.log("DEBUG JWT_SECRET =", process.env.JWT_SECRET);
+console.log("DEBUG JWT_REFRESH_SECRET =", process.env.JWT_REFRESH_SECRET);
+
 const express = require("express");
 const app = express();
 
