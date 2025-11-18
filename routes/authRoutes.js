@@ -11,11 +11,10 @@ const {
 //Dummy database (sementara, nanti bisa pakai MongoDB)//
 const users = [];
 
-//Untuk simpan refresh token sementara (simulasi database)
-let refreshTokens = [];
-
 //Simulasi database untuk blacklist token (logout)//
 let tokenBlackList = [];
+
+let validRefreshTokens = []; //semua token aktif
 
 //Register user baru
 router.post("/register", async (req, res) => {
@@ -36,12 +35,13 @@ router.post("/register", async (req, res) => {
     //Hash password//
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    //Simpan unser baru ke array//
+    //Simpan user baru ke array//
     const newUser = {
       id: users.length + 1,
       username,
       email,
       password: hashedPassword,
+      role: "user", //default role
     };
     users.push(newUser);
 
@@ -77,9 +77,7 @@ router.post("/login", async (req, res) => {
     //Buat token//
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
-
-    //simpan token refresh ke array//
-    refreshTokens.push(refreshToken);
+    validRefreshTokens.push(refreshToken);
 
     res.status(200).json({
       message: "Login berhasil",
@@ -96,16 +94,19 @@ router.post("/login", async (req, res) => {
 //Add setelah end point login//
 router.post("/refresh", (req, res) => {
   const { refreshToken } = req.body;
+
   if (!refreshToken)
     return res.status(401).json({ message: "Refresh token tidak ditemukan" });
 
-  // periksa apakah refreshToken valid dan belum di-blacklist
-  if (!refreshTokens.includes(refreshToken))
+  //cek apakah refresh token ada di daftar token valid (whitelist)
+  if (!validRefreshTokens.includes(refreshToken))
     return res.status(403).json({ message: "Refresh token tidak valid" });
 
+  //cek apakah refresh token sudah di-blacklist
   if (tokenBlackList.includes(refreshToken))
     return res.status(403).json({ message: "Refresh token sudah diblacklist" });
 
+  //verifikasi refresh token//
   jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
     if (err)
       return res.status(403).json({ message: "Refresh token kedaluwarsa" });
@@ -113,9 +114,13 @@ router.post("/refresh", (req, res) => {
     // decoded hanya berisi id (sesuai payload saat membuat refresh token)
     const foundUser = users.find((u) => u.id === decoded.id);
 
+    if (!foundUser) {
+      return res.status(404).json({ message: "User tidak ditemukan" });
+    }
+
     const newAccessToken = generateAccessToken({
       id: decoded.id,
-      email: foundUser ? foundUser.email : undefined,
+      email: foundUser.email,
     });
 
     res.json({
@@ -144,14 +149,23 @@ router.post("/logout", (req, res) => {
   }
 
   // hapus dari array refresh tokens aktif
-  refreshTokens = refreshTokens.filter((token) => token !== refreshToken);
+  validRefreshTokens = validRefreshTokens.filter(
+    (token) => token !== refreshToken
+  );
+
+  if (!validRefreshTokens.includes(refreshToken)) {
+    return res.status(403).json({
+      success: false,
+      message: "Refresh token tidak valid",
+    });
+  }
 
   // tambahkan ke blacklist supaya tidak bisa dipakai lagi
   tokenBlackList.push(refreshToken);
 
   return res.json({
     success: true,
-    message: "Logout berhasil, token dihapus",
+    message: "Logout berhasil, token dihapus dari daftar aktif",
   });
 });
 
