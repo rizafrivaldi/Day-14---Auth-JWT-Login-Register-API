@@ -1,30 +1,27 @@
 require("dotenv").config();
-
-console.log("DEBUG JWT_SECRET =", process.env.JWT_SECRET);
-console.log("DEBUG JWT_REFRESH_SECRET =", process.env.JWT_REFRESH_SECRET);
-
 const express = require("express");
+
 const app = express();
 
+//Middleware//
 app.use(express.json());
 
+//Routes//
 const adminRoutes = require("./routes/adminRoutes");
-app.use("/admin", adminRoutes);
-
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
+
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/admin", adminRoutes);
 
-console.log("DEBUG Load userRoutes =", userRoutes);
-
+//Error Handling Middleware//
 app.use((err, req, res, next) => {
-  console.error("Error caught by handler:", err);
+  console.error("Error caught by handler:", err.message);
 
   res.status(500).json({
     success: false,
     message: err.message || "Terjadi kesalahan server",
-    stack: err.stack, //tambahkan sementara untuk debugging
   });
 });
 

@@ -3,12 +3,13 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const router = express.Router();
+
 const protect = require("../middleware/authMiddleware");
+const authorizesRoles = require("../middleware/roleMiddleware");
 const {
   generateAccessToken,
   generateRefreshToken,
 } = require("../utils/generateToken");
-const authorizesRoles = require("../middleware/roleMiddleware");
 
 //"Database" Sementara//
 const users = [];
@@ -16,6 +17,8 @@ let tokenBlackList = [];
 let validRefreshTokens = [];
 
 //Route Admin//
+{
+  /*}
 router.get(
   "/admin/dashboard",
   protect,
@@ -27,6 +30,8 @@ router.get(
     });
   }
 );
+*/
+}
 
 //Endpoint Register//
 router.post("/register", async (req, res) => {
@@ -53,8 +58,9 @@ router.post("/register", async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      role: "admin",
+      role: "user",
     };
+
     users.push(newUser);
 
     //Response Berhasil//
@@ -82,8 +88,8 @@ router.post("/login", async (req, res) => {
     }
 
     //Cocokan Password Hashed VS Password Input//
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
       return res.status(400).json({ message: "Password salah!" });
     }
 
@@ -101,7 +107,6 @@ router.post("/login", async (req, res) => {
       refreshToken,
     });
   } catch (error) {
-    console.error("Error saat login:", error);
     res.status(500).json({ message: "Terjadi kesalahan server" });
   }
 });
@@ -129,7 +134,6 @@ router.post("/refresh", (req, res) => {
 
     //Decoded Hanya Berisi id (Sesuai Payload Saat Membuat Refresh Token) - Cari User Berdasarkan decoded.id//
     const foundUser = users.find((u) => u.id === decoded.id);
-
     if (!foundUser) {
       return res.status(404).json({ message: "User tidak ditemukan" });
     }
@@ -157,19 +161,19 @@ router.post("/logout", (req, res) => {
       .json({ success: false, message: "Refresh token tidak ditemukan" });
   }
 
-  //Cek Apakah Token Sudah Di Blacklist//
-  if (tokenBlackList.includes(refreshToken)) {
-    return res
-      .status(403)
-      .json({ message: "Token sudah logout (diblacklist)" });
-  }
-
   //Cek Apakah Token Ada Di Daftar Valid Refresh Tokens//
   if (!validRefreshTokens.includes(refreshToken)) {
     return res.status(403).json({
       success: false,
       message: "Refresh token tidak valid",
     });
+  }
+
+  //Cek Apakah Token Sudah Di Blacklist//
+  if (tokenBlackList.includes(refreshToken)) {
+    return res
+      .status(403)
+      .json({ message: "Token sudah logout (diblacklist)" });
   }
 
   //Tambahkan Token Ke Daftar Blacklist Supaya Tidak Bisa Dipakai Lagi//
