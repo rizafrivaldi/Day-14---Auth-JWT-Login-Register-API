@@ -16,23 +16,6 @@ const users = [];
 let tokenBlackList = [];
 let validRefreshTokens = [];
 
-//Route Admin//
-{
-  /*}
-router.get(
-  "/admin/dashboard",
-  protect,
-  authorizesRoles("admin", "super-admin"),
-  (req, res) => {
-    res.json({
-      message: "Selamat datang di dashboard admin",
-      user: req.user,
-    });
-  }
-);
-*/
-}
-
 //Endpoint Register//
 router.post("/register", async (req, res) => {
   try {
