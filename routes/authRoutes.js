@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const router = express.Router();
 
+const prisma = require("../prisma/prisma");
 const protect = require("../middleware/authMiddleware");
 const authorizesRoles = require("../middleware/roleMiddleware");
 const {
@@ -11,10 +12,12 @@ const {
   generateRefreshToken,
 } = require("../utils/generateToken");
 
+{/*
 //"Database" Sementara//
 const users = [];
 let tokenBlackList = [];
 let validRefreshTokens = [];
+*/}
 
 //Endpoint Register//
 router.post("/register", async (req, res) => {
@@ -27,7 +30,10 @@ router.post("/register", async (req, res) => {
     }
 
     //Cek Jika Email Sudah Digunakan//
-    const userExist = users.find((user) => user.email === email);
+    const userExist = await prisma.user.findUnique({
+      where: { email: email },
+    });
+
     if (userExist) {
       return res.status(400).json({ message: "Email sudah digunakan!" });
     }
@@ -36,18 +42,18 @@ router.post("/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     //Simpan User Baru Ke Array//
-    const newUser = {
-      id: users.length + 1,
-      username,
-      email,
-      password: hashedPassword,
-      role: "user",
-    };
-
-    users.push(newUser);
+    const newUser = await prisma.user.create({
+      data: {
+        username: username,
+        email: email,
+        password: hashedPassword,
+        role: "user",
+      },
+      select: {id: true, username: true, email: true, role: true, createdAt: true, updatedAt: true},
+    });
 
     //Response Berhasil//
-    res.status(201).json({ message: "Register berhasil", user: newUser });
+    return res.status(201).json({ message: "Register berhasil", user: newUser });
   } catch (error) {
     res.status(500).json({ message: "Terjadi kesalahan server" });
   }
@@ -65,7 +71,9 @@ router.post("/login", async (req, res) => {
     }
 
     //Cek Email User Ada Di "Database" Sementara//
-    const user = users.find((user) => user.email === email);
+    const user = await prisma.user.findUnique({
+      where: { email: email },
+    });
     if (!user) {
       return res.status(404).json({ message: "User tidak ditemukan!" });
     }
@@ -116,7 +124,10 @@ router.post("/refresh", (req, res) => {
       return res.status(403).json({ message: "Refresh token kedaluwarsa" });
 
     //Decoded Hanya Berisi id (Sesuai Payload Saat Membuat Refresh Token) - Cari User Berdasarkan decoded.id//
-    const foundUser = users.find((u) => u.id === decoded.id);
+    const foundUser = await prisma.user.findUnique({
+      where: { id: decoded.id },
+    });
+
     if (!foundUser) {
       return res.status(404).json({ message: "User tidak ditemukan" });
     }
